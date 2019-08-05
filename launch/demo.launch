@@ -2,13 +2,8 @@
 <launch>
   <param name="robot_description" command="$(find xacro)/xacro.py '$(find franka_description)/robots/panda_arm_RRT.urdf.xacro'" />
 
-  <node name="assembly_rrt_planning" pkg="assembly_rrt_planning" type="assembly_rrt_planning" output="screen" >
+  <node name="ros_rrt_plannar" pkg="ros_rrt_plannar" type="ros_rrt_plannar" output="screen" >
     <param name="urdf_param" value="/robot_description"/> 
   </node>
-  <node name="rrt_ui" pkg="rrt_ui" type="rrt_ui" output="screen" >
-  </node>
-  <!-- <node name="franka_state_publisher" pkg="franka_state_publisher" type="franka_state_publisher" output="screen" >
-  </node> -->
-  <node name="assembly_strategy" pkg="assembly_strategy" type="assembly_strategy" output="screen" >
-  </node>
+ 
 </launch>

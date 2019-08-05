@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>assembly_rrt_planning</name>
+  <name>ros_rrt_plannar</name>
   <version>0.0.1</version>
   <description>assembly vrep package</description>
   <maintainer email="jiyeong@todo.todo">jiyeong</maintainer>

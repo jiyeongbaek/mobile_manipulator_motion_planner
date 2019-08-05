@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(assembly_rrt_planning CXX)
+project(ros_rrt_plannar CXX)
 
 add_compile_options(-std=c++11)
 
