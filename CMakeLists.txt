@@ -47,7 +47,7 @@ set(HEADS
   
 )
 
-add_library(assem_controller 
+add_library(ros_controller 
   ${SRCS} 
   ${HEADS}
 )
@@ -65,7 +65,7 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-  assem_controller
+  ros_controller
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   rbdl
