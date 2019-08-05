@@ -1,1 +1,1 @@
-# assembly_with_vrep
+# assembly_rrt_planning
