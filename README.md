@@ -1,4 +1,4 @@
-# ros_rrt_plannar
+# ros_rrt_planner
 
 
 ## How do I get set up?
@@ -25,5 +25,5 @@ sudo make install
 * Open .ttt
 * roslaunch
 ```
-roslaunch ros_rrt_plannar demo.launch
+roslaunch ros_rrt_planner demo.launch
 ```
