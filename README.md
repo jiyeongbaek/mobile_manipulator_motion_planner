@@ -16,4 +16,14 @@ mkdir build && cd build
 cmake ..
 make
 sudo make install
-'''
+```
+
+
+## How do I run the simulation?
+
+### Launch V-Rep after roscore
+### Open .ttt
+### roslaunch
+```
+roslaunch ros_rrt_plannar demo.launch
+```
