@@ -15,6 +15,7 @@ sudo apt install ros-kinetic-franka-description
 sudo apt-get install ros-kinetic-trac-ik-lib
 ```
 
+
 #### trajectory lib
 ```
 git clone https://github.com/ggory15/trajectory_smoothing --recursive
@@ -24,6 +25,7 @@ cmake ..
 make
 sudo make install
 ```
+
 
 #### rbdl
 ```
