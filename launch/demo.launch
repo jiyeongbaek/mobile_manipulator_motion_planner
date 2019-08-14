@@ -2,7 +2,7 @@
 <launch>
   <param name="robot_description" command="$(find xacro)/xacro.py '$(find franka_description)/robots/panda_arm_RRT.urdf.xacro'" />
 
-  <node name="ros_rrt_plannar" pkg="ros_rrt_plannar" type="ros_rrt_plannar" output="screen" >
+  <node name="ros_rrt_planner" pkg="ros_rrt_planner" type="ros_rrt_planner" output="screen" >
     <param name="urdf_param" value="/robot_description"/> 
   </node>
  
