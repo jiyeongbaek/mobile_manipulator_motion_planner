@@ -3,7 +3,7 @@
 
 ## How do I get set up?
 
-### trac-ik
+### *trac-ik
 ``` 
 sudo apt-get install ros-kinetic-trac-ik-lib
 ```
