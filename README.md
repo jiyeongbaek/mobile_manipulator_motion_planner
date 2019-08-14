@@ -3,12 +3,12 @@
 
 ## How do I get set up?
 
-* trac-ik
+#### trac-ik
 ``` 
 sudo apt-get install ros-kinetic-trac-ik-lib
 ```
 
-* trajectory lib
+#### trajectory lib
 ```
 git clone https://github.com/ggory15/trajectory_smoothing --recursive
 cd trajectory_smoothing
@@ -18,7 +18,7 @@ make
 sudo make install
 ```
 
-* rbdl
+#### rbdl
 ```
 wget https://bitbucket.org/rbdl/rbdl/get/849d2aee8f4c.zip
 unzip 849d2aee8f4c.zip
@@ -30,7 +30,7 @@ make all
 sudo make install
 ```
 
-** If an error occurs, open rbdl-rbdl-[commit]/addons/urdfreader/urdfreader.cc and remove this line
+* If an error occurs, open rbdl-rbdl-[commit]/addons/urdfreader/urdfreader.cc and remove this line
 ```
 #include <ros.h>
 ```
