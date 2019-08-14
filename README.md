@@ -3,6 +3,13 @@
 
 ## How do I get set up?
 
+#### franka robot setup
+```
+sudo apt install ros-kinetic-franka-description
+```
+* Copy 'panda_arm_RRT.xacro' and 'panda_arm_RRT.urdf.xacro' files to your ${franka_description/robots} folder
+
+
 #### trac-ik
 ``` 
 sudo apt-get install ros-kinetic-trac-ik-lib
