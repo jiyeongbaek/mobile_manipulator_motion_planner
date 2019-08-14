@@ -30,7 +30,7 @@ make all
 sudo make install
 ```
 
- - If an error occurs, open rbdl-rbdl-[commit]/addons/urdfreader/urdfreader.cc and remove this line
+** If an error occurs, open rbdl-rbdl-[commit]/addons/urdfreader/urdfreader.cc and remove this line
 ```
 #include <ros.h>
 ```
