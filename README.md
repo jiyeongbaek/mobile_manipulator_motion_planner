@@ -1,4 +1,4 @@
-# ros_rrt_planner
+# mobile_manipulator_motion_planner
 
 
 ## How do I get set up?
