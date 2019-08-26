@@ -1,9 +1,6 @@
 #include <rbdl/rbdl.h>
 #include <memory>
 #include "util.h"
-#include <ros/node_handle.h>
-#include <sensor_msgs/JointState.h>
-#include <std_msgs/Bool.h>
 
 
 using namespace std;
@@ -24,11 +21,10 @@ struct vnew
 
 };
 
-class nh_rrt
+class NH_RRT
 {
 public:
-	nh_rrt(ros::NodeHandle nh_);
-	~nh_rrt();
+	virtual ~NH_RRT() {};
 
 	//NH-RRT 
 	bool StartNHRRT(std::ostream& sout);
@@ -51,8 +47,5 @@ public:
 	int addedVert;
 	double base_width, base_length;
 
-private :
-
-	ros::Publisher nhrrt_pub;
 
 };

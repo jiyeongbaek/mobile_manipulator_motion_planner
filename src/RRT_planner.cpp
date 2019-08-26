@@ -15,46 +15,30 @@ static const int DoF = 7;
 #define TRAPPED -1
 #define q_Max  180.0
 
-rrt::rrt(ros::NodeHandle nh_)
-{
-
-	rrt_pub = nh_.advertise<std_msgs::Bool>("/rrt_planned_done", 1);
-
-}
-rrt::~rrt(){
-
-}
-
 bool rrt::StartRRT(Robotmodel& model, std::ostream& sout) {
 	_model = model;
-	std::string fullinput;
-	std::vector<std::string> startconfig;
-	std::vector<std::string> endgoal;
-	std::vector<std::string> weightsstr;
-	std::vector<std::string> parameters;
-	std::vector<std::string> inputs;
+
 	tree._nodes.clear(); // NodeTree
 	gTree._nodes.clear(); // NodeTree
 	goal.clear(); // std::vector<double>
 	start.clear();// std::vector<double>
 	DOF_weights.clear();// std::vector<double>
 
-	int ActiveDoFs = DoF_size;
 	step_size = 0.5;
 	std::string start_string[DoF];
 
-	for (int i = 0; i < ActiveDoFs; i++) {
+	for (int i = 0; i < dof; i++) {
 		start.push_back(qinit(i) * 180.0 / M_PI);
 		goal.push_back(qgoal(i) * 180.0 / M_PI);
 		DOF_weights.push_back(1.0);
 	}
 
-	RRTNode n(start, 0); // ������ RRT
+	RRTNode n(start, 0);
 	tree.addNode(n);
 	c_tree = &tree; // c_tree : pointer of NodeTree
 	t_turn = 0;
 	g2 = goal;
-	RRTNode g(goal, 0); // ���� RRT
+	RRTNode g(goal, 0); 
 	gTree.addNode(g);
 	// That's why we called "BiRRT"
 
@@ -62,8 +46,6 @@ bool rrt::StartRRT(Robotmodel& model, std::ostream& sout) {
 	int iter = 1;
 
 	while (iter < 500000) {
-		planned_done.data = false;
-		rrt_pub.publish(planned_done);
 		count = 0;
 		if (t_turn == 1) { // BiRRT 
 			t_turn = 2;
@@ -76,7 +58,6 @@ bool rrt::StartRRT(Robotmodel& model, std::ostream& sout) {
 			c_tree = &tree;
 		}
 		std::vector<double> node = RandomConfig();
-		//std::cout << iter << std::endl;
 
 		if (this->Connect(node) == REACHED && isGoal) {
 			std::cout << "FINISHED " << " " << "iteration:" << " " << iter << std::endl;
@@ -85,11 +66,7 @@ bool rrt::StartRRT(Robotmodel& model, std::ostream& sout) {
 		}
 		iter++;
 	}
-
 	if (finished) {
-		planned_done.data = false;
-		rrt_pub.publish(planned_done);
-
 		path = tree.getPath();
 		vector<vector<double>> p2;
 		p2 = gTree.getPath();
@@ -97,7 +74,6 @@ bool rrt::StartRRT(Robotmodel& model, std::ostream& sout) {
 		path.insert(path.end(), p2.begin(), p2.end());
 
 		for (int i = 0; i < path.size(); i++) {
-			//cout << i << endl;
 			std::vector<double> node = path[i];
 			for (int j = 0; j<node.size() - 1; j++)
 				sout << node[j] << ",";
@@ -108,85 +84,87 @@ bool rrt::StartRRT(Robotmodel& model, std::ostream& sout) {
 	else {
 		return false;
 	}
-	// planned_done.data = true;
-	// rrt_pub.publish(planned_done);
+
 	return true;
 }
 bool rrt::StartCRRT(Robotmodel& model, std::ostream& sout) {
 	_model = model;
-	std::string fullinput;
-	std::vector<std::string> startconfig;
-	std::vector<std::string> endgoal;
-	std::vector<std::string> weightsstr;
-	std::vector<std::string> parameters;
-	std::vector<std::string> inputs;
+
 	tree._nodes.clear();
 	gTree._nodes.clear();
 	goal.clear();
+	goal2.clear();
+	goal3.clear();
+	goal4.clear();
+	goal5.clear();
+
 	start.clear();
 	DOF_weights.clear();
 
-	int ActiveDoFs = DoF_size;
-	step_size = 0.5;
+	step_size =  0.05/M_PI*180.0;
 	std::string start_string[DoF];
 
-	for (int i = 0; i < ActiveDoFs; i++) {
+	for (int i = 0; i < dof; i++) {
 		start.push_back(qinit(i) * 180.0 / M_PI);
 		goal.push_back(qgoal(i) * 180.0 / M_PI);
 		DOF_weights.push_back(1.0);
 	}
-	RRTNode n(start, 0); // start tree
+
+
+	RRTNode n(start, 0); // ������ RRT
 	tree.addNode(n);
 	c_tree = &tree;
 	t_turn = 0;
 	g2 = goal;
-	RRTNode g(goal, 0); // goal tree
+	RRTNode g(goal, 0); // ���� RRT
 	gTree.addNode(g);
 
 	bool finished = false;
 	int iter = 1;
+	while (iter < 5000000)
+	{
 
-	while (iter < 5000000) {
-		planned_done.data = false;
-		rrt_pub.publish(planned_done);
-		/////// Start tree -> Goal tree's the nearest configuration
-		g2 = gTree._nodes.back()->getConfiguration();// goal node 
+		g2 = gTree._nodes.back()->getConfiguration(); // goal tree
+		c_tree = &tree;																//		// start tree
+		std::vector<double> node = RandomConfig();		// last node of goal tree(g2) or random config
 
-		c_tree = &tree;//		// start tree 
-
-		std::vector<double> node = RandomConfig(); 
-		// 10% : random / 90% : goal tree config 
-
-		// goal tree -> start tree 
+		// goal tree -> start tree
 		int a = this->ConstrainedConnect(node);
 
-		if (a == REACHED && isGoal) { // REACHED : norm(g2, node) < step size
-			std::cout << "FINISHED " << " " << "iteration:" << " " << iter << std::endl;
+		if (a == REACHED && isGoal)
+		{
+			std::cout << "FINISHED "
+								<< " "
+								<< "iteration:"
+								<< " " << iter << std::endl;
 			finished = true;
 			break;
 		}
 
-		/////// Goal tree ->  Start tree's the nearest configuration
+		// start tree -> goal tree config
 		g2 = tree._nodes.back()->getConfiguration();
 		c_tree = &gTree;
+	//	cout <<"extend2" << endl;
 		a = this->ConstrainedConnect(node);
-		if (a == REACHED) {
-			std::cout << "FINISHED " << " " << "iteration:" << " " << iter << std::endl;
+		if (a == REACHED)
+		{
+			std::cout << "FINISHED "
+								<< " "
+								<< "iteration:"
+								<< " " << iter << std::endl;
 			finished = true;
 			break;
 		}
 		iter++;
-  	}
-	if (finished) {
-		planned_done.data = false;
-		rrt_pub.publish(planned_done);
+	}
 
+
+	if (finished) {
 		path = tree.getPath();
 		vector<vector<double>> p2;
 		p2 = gTree.getPath();
 		reverse(p2.begin(), p2.end());
 		path.insert(path.end(), p2.begin(), p2.end());
-		//cout << "path size" << path.size() << endl;
 		for (int i = 0; i < path.size(); i++) {
 			std::vector<double> node = path[i];
 			for (int j = 0; j<node.size() - 1; j++)
@@ -198,15 +176,15 @@ bool rrt::StartCRRT(Robotmodel& model, std::ostream& sout) {
 	else {
 		return false;
 	}
+
 	return true;
 }
 std::vector<double> rrt::RandomConfig() {
 	double goalb = (double)rand() / RAND_MAX;
-	if (goalb < 0.1) {
+	if (goalb < 0.2) {
 		isGoal = true;
 		return g2;
-	} // goal bias�� ���� ���� ���żӵ��� �������ٳ�!
-	// why ?? 
+	} 
 
 	isGoal = false;
 	std::vector<double> R;
@@ -217,6 +195,7 @@ std::vector<double> rrt::RandomConfig() {
 			R.push_back(lower_limit(i) + r);
 		}
 	} while (R.size() != goal.size());
+
 	return R;
 }
 int rrt::Connect(std::vector<double> &node) { // Connect current node & current tree
@@ -226,7 +205,6 @@ int rrt::Connect(std::vector<double> &node) { // Connect current node & current 
 	int s = this->Extend(node, near);
 	while (s != TRAPPED) {
 		if (s == REACHED) {
-		//	cout << " reached" << endl;
 			return REACHED;
 		}
 		s = this->Extend(node, near);
@@ -272,52 +250,82 @@ int rrt::Extend(std::vector<double> &node, RRTNode* &near) {
 int rrt::ConstrainedConnect(std::vector<double> &node) {
 	//&node : random configuration
 	std::vector<double> robot;
-	RRTNode* near = c_tree->getNearest(robot, node, DOF_weights); 
-	int s = this->ConstrainedExtend(node, near);
+	RRTNode* near = c_tree->getNearest(robot, node, DOF_weights); // random config�� ���� ����� c_tree�� ��� ã��
+	int s = this->ConstrainedExtend(node, near); // near��� ���� random config�� Extend
 	return s;
 }
 int rrt::ConstrainedExtend(std::vector<double> &node, RRTNode* &near) {
 	// q_near & q_rand
 	std::vector<double> robot;
-	std::vector<double> qs, qs_old;
+	std::vector<double> qs, qs_old, qs_prev;
+	VectorXd qs_(dof), qs_old_(dof), node_(dof), dev_(dof);
 	bool project_flag = false;
 
 	for (int i = 0; i < goal.size(); i++) {
 		qs.push_back(near->getConfiguration()[i]);
 		qs_old.push_back(near->getConfiguration()[i]);
+		qs_prev.push_back(near->getConfiguration()[i]);
+		node_(i) = near->getConfiguration()[i];
 	}
-
-	while (true) {
-		if (std_norm(node, qs, DoF_size) < step_size) {
+	while (true)
+	{
+		if (std_norm(node, qs, dof) < step_size)
+		{
+			// qs & node사이의 간격을 좁히지 못함.
 			node = qs;
 			return REACHED;
 		}
-		else if (std_norm(node, qs, DoF_size) - std_norm(qs_old, node, DoF_size) > 0.0) {
+		else if (std_norm(node, qs, dof) - std_norm(qs_old, node, dof) > 0.0)
+		{
 			node = qs_old;
-			return TRAPPED;
+			return REACHED;
 		}
-		qs_old = qs;
-
-		for (int i = 0; i< goal.size(); i++)
-			qs[i] = (qs[i] + min(step_size, std_norm(node, qs, DoF_size)) * (node[i]-qs[i]) / std_norm(node, qs, DoF_size));
 
 
+		for (int i = 0; i < dof; i++)
+			qs_prev[i] = qs[i];
+
+		for (int i = 0; i < dof; i++)
+		{
+			qs[i] = (qs[i] + min(step_size, std_norm(node, qs, dof)) * (node[i] - qs[i]) / std_norm(node, qs, DoF_size));
+			qs_(i) = (qs[i] + min(step_size, std_norm(node, qs, dof)) * (node[i] - qs[i]) / std_norm(node, qs, DoF_size));
+			dev_(i) = min(step_size, std_norm(node, qs, dof)) * (node[i] - qs[i]) / std_norm(node, qs, DoF_size);
+		}
+		//		cout << "dev" << dev_.transpose() << endl;
+		//	cout << "qs before" << qs_.transpose() << endl;
+		// qs_old : near / qs : extend
 		project_flag = ProjectConfig(_model, qs_old, qs); // project qs onto constraint manifold
-		//return qs
+		for (int i = 0; i < dof; i++)
+			dev_(i) = qs[i];
 
-		if (!project_flag) {
-			cout << "project config trapped" << endl;
+		if (!project_flag)
+		{
+		//	cout << "project trapped" << endl;
 			node = qs_old;
 			return TRAPPED;
 		}
-		else {
-			if (!CheckCollision(_model, qs)) {
-				RRTNode *old = near; //qs_old
-				near = (new RRTNode(qs, old)); // 
-				c_tree->addNode(*near);
+		else
+		{
+			if (!CheckCollision(_model, qs))
+			{
+
+				if (std_norm(qs_prev, qs, dof) < 0.1)
+				{
+				//	cout <<"stuck" << endl;
+					node = qs_old;
+					return TRAPPED;
+				}
+				else
+				{
+					RRTNode *old = near;					 //qs_old
+					near = (new RRTNode(qs, old)); //
+					c_tree->addNode(*near);
+					qs_old = qs;
+					qs_prev = qs;
+				}
 			}
-			else {
-				cout << "Collision trapped" << endl;
+			else
+			{
 				node = qs_old;
 				return TRAPPED;
 			}
@@ -327,40 +335,39 @@ int rrt::ConstrainedExtend(std::vector<double> &node, RRTNode* &near) {
 bool rrt::ProjectConfig(Robotmodel model, std::vector<double> qold, std::vector<double> &qs) {
 	bool flag = false;
 	model.q.resize(dof);
+
 	// Tc
 	Matrix4d T0_c, T0_obj, Tc_obj;
+//	T0_c.topLeftCorner(3,3) = refer_rot;
 	T0_c.setIdentity();
 	T0_c.topRightCorner(3, 1) = refer_pos;
 
-	MatrixXd J_temp(6, DoF_size), J(6, DoF_size), eye(6, 6);
-
+	MatrixXd J_temp(6, dof), J(6, dof), eye(6, 6);
 	eye.setIdentity();
-	VectorXd d_c(6), dx(6), q_error(6);
+	VectorXd d_c(6), dx(6), q_error(dof);
 	dx.setZero();
 	Vector3d phi;
 	Vector3d s[3], v[3], w[3];
 	Matrix3d Rotd;
 	Rotd = refer_rot;
 
-	// from degree to radian
-	// to calculate jacobian in RBDL 
-	for (int i = 0; i < DoF_size; i++) {
+	for (int i = 0; i < dof; i++) {// deg -> rad
 		qs[i] = qs[i] * M_PI / 180.0;
 		qold[i] = qold[i] * M_PI / 180.0;
 	}
 
 	while (true) {
-		for (int i = 0; i < DoF_size; i++)
+		for (int i = 0; i < dof; i++)
 			model.q(i) = qs[i];
 
-
-		Matrix3d Rot_temp = Rot_arm(model.q);
+		Matrix3d Rot_temp = model.Rot*Rot_arm(model.q);
 		Vector3d pos_temp = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[dof-1], model.com_id[dof-1] ); // get position and rotation in EE frame;
 
 		T0_obj.setIdentity();
-		T0_obj.topLeftCorner(3, 3) = Rot_temp;
+	//	T0_obj.topLeftCorner(3, 3) = Rot_temp;
 		T0_obj.topRightCorner(3, 1) = pos_temp;
 		Tc_obj = T0_c.inverse() * T0_obj;
+
 
 		d_c.head(3) = Tc_obj.topRightCorner(3, 1);
 		d_c(3) = atan2(-Tc_obj(1, 2), Tc_obj(2, 2));
@@ -368,17 +375,18 @@ bool rrt::ProjectConfig(Robotmodel model, std::vector<double> qold, std::vector<
 		d_c(5) = atan2(-Tc_obj(0, 1), Tc_obj(0, 0));
 
 		for (int i = 0; i < 3; i++) {
-			if (d_c(i) > C(i, 0)  ) // max 
+			if (d_c(i) > C(i, 0)) // max
 				dx(i) = d_c(i) - C(i, 0);
-			else if (d_c(i) < C(i, 1) ) // min
+			else if (d_c(i) < C(i, 1)) // min
 				dx(i) = d_c(i) - C(i, 1);
 			else
 				dx(i) = 0.0;
 		}
 
 		for (int i = 0; i < 3; i++)
-			if (constraint_axis[i] == false)
+			if (constraint_axis[i] == false){
 				dx(i) = 0.0;
+			}
 
 		for (int i = 0; i < 3; i++) {
 			v[i] = Rot_temp.block(0, i, 3, 1);
@@ -391,7 +399,13 @@ bool rrt::ProjectConfig(Robotmodel model, std::vector<double> qold, std::vector<
 
 
 		// Algorithm 4 - line 3
-		if (dx.norm() < 0.03) {
+		if (dx.norm() < 0.001) {
+		//	cout << d_c.transpose() << endl;
+		//			cout << dx.transpose() << endl;
+	//		cout << "pos" << pos_temp.transpose() << endl;
+	//		cout << "qerror" << q_error.transpose()/M_PI*180.0 << endl;
+			//		getchar();
+
 			flag = true;
 			break;
 		}
@@ -399,32 +413,25 @@ bool rrt::ProjectConfig(Robotmodel model, std::vector<double> qold, std::vector<
 		// Algorithm 4 - line 4
 		if (left) {
 			CalcPointJacobian6D(*model.model, model.q, model.body_id[dof-1], model.com_id[dof-1] , J_temp, true);
-			J.topLeftCorner(3, DoF_size) = J_temp.bottomLeftCorner(3, DoF_size);
-			J.bottomLeftCorner(3, DoF_size) = J_temp.topLeftCorner(3, DoF_size);
+			J.topLeftCorner(3, dof) = J_temp.bottomLeftCorner(3, dof);
+			J.bottomLeftCorner(3, dof) = J_temp.topLeftCorner(3, dof);
 		}
 		else {
 			CalcPointJacobian6D(*model.model, model.q, model.body_id[dof-1], model.com_id[dof-1] , J_temp, true);
-			J.topLeftCorner(3, DoF_size) = J_temp.bottomLeftCorner(3, DoF_size);
-			J.bottomLeftCorner(3, DoF_size) = J_temp.topLeftCorner(3, DoF_size);
+			J.topLeftCorner(3, dof) = J_temp.bottomLeftCorner(3, dof);
+			J.bottomLeftCorner(3, dof) = J_temp.topLeftCorner(3, dof);
 		}
 
 		// Algorithm 4 - line 5
 		q_error = J.transpose() * (J*J.transpose()).inverse() * dx;
 
 		// Algorithm 4 - line 6
-		for (int i = 0; i < DoF_size; i++)
+		for (int i = 0; i < dof; i++)
 			qs[i] -= q_error(i);
 
-		// 
-		// for (int i = 0; i < DoF_size; i++)
-		// 	if ((qs[i]) > M_PI)
-		// 		qs[i] -= 2 * M_PI;
-		// 	else if (qs[i] < -M_PI)
-		// 		qs[i] += 2 * M_PI;
-
 		// Algorithm 4 - line 7 : stuck here
-		//|| std_norm(qs, qold, DoF_size) > 2 * step_size / 180.0 * M_PI
-		if (!OutsideJointLimit(qs)) {
+		//|| std_norm(qs, qold, dof) > 2 * step_size/180.0*M_PI
+		if (!OutsideJointLimit(qs) ) {
 			flag = false;
 			break;
 		}
@@ -432,7 +439,7 @@ bool rrt::ProjectConfig(Robotmodel model, std::vector<double> qold, std::vector<
 	}
 
 	// rad -> deg
-	for (int i = 0; i < DoF_size; i++) {
+	for (int i = 0; i < dof; i++) {
 		qs[i] = qs[i] / M_PI * 180.0;
 	}
 
@@ -465,15 +472,11 @@ bool rrt::SmoothPath(std::ostream& sout, std::istream& sinput)
 
 	while (nSmooth) { // while(x) -> while( x != 0 )
 		ShortcutSmoothing();
-	//	std::cout << " path length: " << path.size() << std::endl;
 		nSmooth--;
 	}
 	
-	//std::cout<< (std::clock() - startTime)/CLOCKS_PER_SEC << std::endl;
-	//std::cout <<"Length: "<<path.size();
 	for (int i = 0; i< path.size(); i++) {
 		std::vector<double> node = path[i];
-		//sout << "[";
 		for (int j = 0; j<node.size() - 1; j++) {
 			sout << node[j] << ",";
 		}
@@ -502,10 +505,10 @@ bool rrt::ShortcutSmoothing() {
 	}
 	return false;
 }
+
 bool rrt::CheckTraj(std::vector<double> &a, std::vector<double> &b) {
 	std::vector<double> u = getUnitVector(a, b); // a->b
 	std::vector<double> p = a;
-	//std::cout << &p << "  " << &a << std::endl;
 	while (p != b) {
 		if (CheckCollision(_model, p)) { return false;
 		break;
@@ -538,8 +541,8 @@ std::vector<double> rrt::getUnitVector(std::vector<double> &a, std::vector<doubl
 	return diff;
 }
 bool rrt::CheckCollision(Robotmodel model, std::vector<double> &config) {
-	model.q.resize(DoF_size);
-	for (int i = 0; i < DoF_size; i++)
+	model.q.resize(dof);
+	for (int i = 0; i < dof; i++)
 		model.q(i) = config[i] * M_PI / 180.0;
 
 	if (!left) {
@@ -556,33 +559,28 @@ bool rrt::CheckCollision(Robotmodel model, std::vector<double> &config) {
 		Box2[0].vAxis[0] = Rot_temp.col(0);
 		Box2[0].vAxis[1] = Rot_temp.col(1);
 		Box2[0].vAxis[2] = Rot_temp.col(2);
-		Box2[0].fAxis = Vector3d(0.05, 0.05, 0.10);
+		Box2[0].fAxis = Vector3d(0.03, 0.07, 0.1);
 		Box2[0].vPos = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[dof-1], model.com_id[dof-1] , true);
-	
-			// door scenario 
+
 		Matrix3d Rot_temp2 = model.Rot*Rot_arm_link5(model.q); // link 5
 		Box2[1].vAxis[0] = Rot_temp2.col(0);
 		Box2[1].vAxis[1] = Rot_temp2.col(1);
 		Box2[1].vAxis[2] = Rot_temp2.col(2);
+		Box2[1].fAxis = Vector3d(0.05, 0.05, 0.10);
 		Box2[1].vPos = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[4], model.com_id[4], true);
 
 		Matrix3d Rot_temp3 = model.Rot*Rot_arm_link2(model.q); // link 2
 		Box2[2].vAxis[0] = Rot_temp3.col(0);
 		Box2[2].vAxis[1] = Rot_temp3.col(1);
 		Box2[2].vAxis[2] = Rot_temp3.col(2);
+		Box2[2].fAxis = Vector3d(0.05, 0.05, 0.10);
 		Box2[2].vPos = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[1], model.com_id[1], true);
-
-
-		// stick 
-		// Box2[3].vAxis[0] = Rot_temp.col(0);
-		// Box2[3].vAxis[1] = Rot_temp.col(1);
-		// Box2[3].vAxis[2] = Rot_temp.col(2);
-		// Box2[3].vPos = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[6], model.com_id[6], true);
 
 		Box2[3].vAxis[0] = Rot_temp.col(0);
 		Box2[3].vAxis[1] = Rot_temp.col(1);
 		Box2[3].vAxis[2] = Rot_temp.col(2);
-		Box2[3].vPos = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[dof-1], model.com_id[dof-1] , true);
+		Box2[3].fAxis = Vector3d(0.03, 0.03, 0.05);
+		Box2[3].vPos = CalcBodyToBaseCoordinates(*model.model, model.q, model.body_id[6], model.com_id[dof], true);
 
 
 	}
@@ -597,16 +595,20 @@ bool rrt::CheckCollision(Robotmodel model, std::vector<double> &config) {
 		if (chk) {
 			return chk;
 		}
+		//cout << "collision" << i << "\t" << j << endl;
 	}
 	}
 	return chk;
 }
-bool rrt::OutsideJointLimit(std::vector<double> q) {
+bool rrt::OutsideJointLimit(std::vector<double> q) { // radian
 	for (int i = 0;i < q.size();i++) {
-		if (q[i] > upper_limit(i)) {
+		if (q[i] > upper_limit(i)/180.0*M_PI) {
+		//	cout << q[i] << "\t" << upper_limit(i)/180.0*M_PI << "\t" << i << endl;
 			return false;
 		}
-		else if (q[i] < lower_limit(i)) {
+		else if (q[i] < lower_limit(i)/180.0*M_PI) {
+		//	cout << q[i] << "\t" << lower_limit(i)/180.0*M_PI  << "\t" << i << endl;
+
 			return false;
 		}
 	}
@@ -787,13 +789,13 @@ MatrixXd rrt::MergeRRTResults(MatrixXd joint_target1, MatrixXd joint_target2, in
 				merged_joint_target.resize(row[0] + row[1], dof);
 				merged_joint_target.topRows(row[0]) = joint_target1.topRows(row[0]);
 				for (int i = 0; i < row[1]; i++)
-					merged_joint_target.row(row[0] + i) = joint_target2.row(20 * (i + 1));
+					merged_joint_target.row(row[0] + i) = joint_target2.row(20 * (i + 1)-1);
 			}
 			else{
 				merged_joint_target.resize(row[0] + row[1] + 1,dof);
 				merged_joint_target.topRows(row[0]) = joint_target1.topRows(row[0]);
 				for (int i = 0; i < row[1]; i++)
-					merged_joint_target.row(row[0] + i) = joint_target2.row(20 * (i + 1));
+					merged_joint_target.row(row[0] + i) = joint_target2.row(20 * (i + 1)-1);
 
 				merged_joint_target.bottomRows(1) = joint_target2.bottomRows(1);
 			}

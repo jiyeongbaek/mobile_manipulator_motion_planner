@@ -9,19 +9,11 @@ using namespace std;
 using namespace Eigen;
 
 
-nh_rrt::nh_rrt(ros::NodeHandle nh_)
-{
 
-	nhrrt_pub = nh_.advertise<std_msgs::Bool>("/nhrrt_planned_done", 1);
-
-}
-nh_rrt::~nh_rrt(){
-
-}
-
-bool nh_rrt::StartNHRRT(std::ostream& sout) {
+bool NH_RRT::StartNHRRT(std::ostream& sout) {
 
 	////////////////////////////////////// Initial Setting ///////////////////////////
+	//cout << "restart!" << endl;
 	bool finished = false;
 	int iter = 1;
 	addedVert = 0;
@@ -45,7 +37,9 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 	int collision2_ = 0;
 	////////////////////////////////////// Main algorithm ////////////////////////
 	while (iter < 10000) {
+		// random sampling 
 		Vector3d q_rand = RandomConfig_base();
+		// goal-biased sampling
 
 		// Check collision for sampling
 		for (int i = 0;i < obs_num;i++) {
@@ -88,6 +82,8 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 			}
 			else {
 				if (v_to_extend.parent_id == 0) {
+					// parent id �� q_init�̸� ����
+					// parent id ���� extend �� �� �ִ��� Ȯ�� 
 					rootreached = 0;
 					break;
 				}
@@ -97,6 +93,7 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 						if (tau[i].id == v_to_extend.parent_id) {
 							v_to_extend = tau[i];
 						}
+						// tau�� ��ƽ �Ŀ��� "q_init�� parent_id��" ����ų�״� v_to_extend�� q_init���� �ѹ� extend�� ��尡 ��. 
 					}
 				}
 			}
@@ -150,6 +147,7 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 		}
 		addedVert++;
 		cntId++;
+		//cout<<"added" << addedVert << endl;
 		v_min.id = cntId;
 		tau[addedVert].id = v_min.id;
 		tau[addedVert].pose = v_min.pose;
@@ -159,9 +157,13 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 
 		if (sqrt(pow(v_min.pose(0) - qgoal(0), 2) + pow(v_min.pose(1) - qgoal(1), 2) + pow(v_min.pose(2) - qgoal(2), 2)) < radius_goal) {
 			int id;
+			//cout << "goal reached" << endl;
 			id = v_min.parent_id;
 			while (id > 0) {
 				goal_path.push_front(v_min.edgeq);
+				//for (int i = 0;i < v_min.edgeq.size();i++) {
+				//	cout << v_min.edgeq[i].transpose() << endl;
+				//}
 				for (int i = 0;i <= addedVert;i++) {
 					if (tau[i].id == id) {
 						v_min = tau[i];
@@ -172,13 +174,33 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 				}
 			}
 
+
+			//	std::vector<std::vector<Vector3d>>::size_type i;
+
+			//for (i = 0; i<goal_path.size();i++) {
+			//	std::vector<Vector3d> & a = goal_path[i];
+			//	for (auto & aa : a)
+			//	{
+			//		cout << aa.transpose() << endl;
+			//	}
+			//
+			//	//for (int j=0; j<a.size();i++)
+			//	//{
+			//	//	cout << a[j].transpose() << endl;
+			//	//}
+			//		//cout << path_[i](2) << endl;
+			//}
+
+			//getchar();
 			finished = true;
+			cout << "# iter" << addedVert << endl;
 			break;
 		}
 
 
 
 		iter++;
+		//cout << iter << endl;
 	}
 	if (finished) {
 		for (int i = 0; i < goal_path.size(); i++) {
@@ -204,7 +226,7 @@ bool nh_rrt::StartNHRRT(std::ostream& sout) {
 }
 
 
-Vector3d nh_rrt::RandomConfig_base() {
+Vector3d NH_RRT::RandomConfig_base() {
 	Vector3d R;
 	for (int i = 0; i < R.size(); i++) {
 		double jointrange = upper_limit_base(i) - lower_limit_base(i);
@@ -225,7 +247,7 @@ Vector3d nh_rrt::RandomConfig_base() {
 
 	return R;
 }
-vnew nh_rrt::Extend_base(vnew & v_near, Vector3d &q_rand) {
+vnew NH_RRT::Extend_base(vnew & v_near, Vector3d &q_rand) {
 
 	Vector3d q0;
 	q0 = v_near.pose;
@@ -241,22 +263,22 @@ vnew nh_rrt::Extend_base(vnew & v_near, Vector3d &q_rand) {
 
 	return v_new;
 }
-double nh_rrt::Compute_cost(std::vector<Vector3d>& path, Vector3d &q_0) {
+double NH_RRT::Compute_cost(std::vector<Vector3d>& path, Vector3d &q_0) {
 	double cost;
 	cost = 0.0;
 	std::vector<Vector3d> path_ = path;
 
 	std::vector<Vector3d>::size_type i;
 	for (i = 1; i<path_.size();i++) {
-		cost += abs((path_[i](2) - path_[i - 1](2)));
+		cost = cost + 10*abs((norm_angle(path_[i](2), 0) - norm_angle(path_[i-1](2), 0)));
 	}
 	Vector3d end_ = path_.back();
 
-	cost += sqrt(pow(end_(0) - q_0(0), 2) + pow(end_(1) - q_0(1), 2));
+	cost += 0.5*sqrt(pow(end_(0) - q_0(0), 2) + pow(end_(1) - q_0(1), 2));
 	return cost;
 }
 
-bool nh_rrt::CheckCollision_base(Obs_para* Obs, Vector3d q) {
+bool NH_RRT::CheckCollision_base(Obs_para* Obs, Vector3d q) {
 
 	double dist;
 	dist = pow((Obs->pos(0) - q(0)), 2) + pow((Obs->pos(1) - q(1)), 2);
@@ -269,7 +291,7 @@ bool nh_rrt::CheckCollision_base(Obs_para* Obs, Vector3d q) {
 	else
 		return false; // collision
 }
-int nh_rrt::Check_edge(Obs_para* Obs, vnew vnew_i) {
+int NH_RRT::Check_edge(Obs_para* Obs, vnew vnew_i) {
 	Vector3d q0;
 	int flag = 0;
 	for (std::vector<Vector3d>::size_type i = 0;i < vnew_i.edgeq.size();i++) {
@@ -282,7 +304,7 @@ int nh_rrt::Check_edge(Obs_para* Obs, vnew vnew_i) {
 	return flag;
 }
 
-std::vector<Vector3d> nh_rrt::PositionCTRL_WP(Vector3d & q_start, Vector3d &q_end, int dir, double delta_T, double b) {
+std::vector<Vector3d> NH_RRT::PositionCTRL_WP(Vector3d & q_start, Vector3d &q_end, int dir, double delta_T, double b) {
 
 	double sl = 0.0;
 	double sr = 0.0;
@@ -313,6 +335,8 @@ std::vector<Vector3d> nh_rrt::PositionCTRL_WP(Vector3d & q_start, Vector3d &q_en
 
 	Vector3d x_end;
 	x_end = q_end;
+	//cout << "x_current" << x_current.transpose() << endl;
+	//cout << "x_end" << x_end.transpose() << endl;
 
 	while (!eot) {
 		dSl = sl - oldSl; // difference of wheel angle
@@ -325,6 +349,7 @@ std::vector<Vector3d> nh_rrt::PositionCTRL_WP(Vector3d & q_start, Vector3d &q_en
 		double temp = x_current(2) + dSd;
 		x_current(2) = norm_angle(temp, -M_PI);
 
+		//cout << "x_current" << x_current.transpose() << endl;
 		PositionCTRL_Step_WP(ti, x_current, x_end, dir, b, vl, vr, eot, vm_vd(0), vm_vd(1));
 		speeds(0) = vl;
 		speeds(1) = vr;
@@ -349,13 +374,13 @@ std::vector<Vector3d> nh_rrt::PositionCTRL_WP(Vector3d & q_start, Vector3d &q_en
 
 	return x_vec;
 }
-void nh_rrt::PositionCTRL_Step_WP(double t, Vector3d q_current, Vector3d q_end, int dir, double b, double& vl, double& vr, int& eot, double &vm, double& vd) {
+void NH_RRT::PositionCTRL_Step_WP(double t, Vector3d q_current, Vector3d q_end, int dir, double b, double& vl, double& vr, int& eot, double &vm, double& vd) {
 	double Kv = 3.8; // 3.8
 	double Krho = 1.0; // 3.0 // condition : Kalpha + 5/3*Kbeta - 2/pi*Krho > 0
 	double Kalpha = 6.0; // 8.0
 	double Kbeta = -1.0;
 
-	double Vmax = 5.0;
+	double Vmax = 1.0;
 
 	double RhoEndCondition = 0.05;
 	double PhiEndCondition = 20 * M_PI / 180.0;
@@ -414,6 +439,9 @@ void nh_rrt::PositionCTRL_Step_WP(double t, Vector3d q_current, Vector3d q_end, 
 	vd = Kalpha * alpha + Kbeta * beta;
 
 	if (rho < RhoEndCondition && abs(phi) < PhiEndCondition) {
+		//cout << "rho" << rho << endl;
+		//cout << "phi" << phi << endl;
+		//cout << q_end.transpose() << endl;
 		eot = 1;
 	}
 	else
@@ -431,7 +459,7 @@ void nh_rrt::PositionCTRL_Step_WP(double t, Vector3d q_current, Vector3d q_end, 
 
 
 }
-double nh_rrt::norm_angle(double& angle, double min) {
+double NH_RRT::norm_angle(double& angle, double min) {
 	double temp_angle = angle;
 	while (temp_angle >= min + 2 * M_PI) {
 		temp_angle -= 2 * M_PI;
@@ -442,6 +470,7 @@ double nh_rrt::norm_angle(double& angle, double min) {
 	}
 
 	double a = temp_angle;
+	//cout << a << endl;
 
 	return a;
 }

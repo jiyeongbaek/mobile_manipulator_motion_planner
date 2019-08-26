@@ -3,107 +3,210 @@
 ROS_bridge::ROS_bridge(ros::NodeHandle nh_,double hz_):
     rate_(hz_)
   {    
+    is_first_run = true;
+    tick = 0;
+    sim_step_done_ = false;
+    sim_time_ = 0.0f;
 
     current_ql_.resize(dof);
-    current_ql_.setZero();
+    current_ql_dot_.resize(dof);
     desired_ql_.resize(dof);
     desired_ql_.setZero();
+    target_x_.resize(3);
 
     current_qr_.resize(dof);
-    current_qr_.setZero();
+    current_qr_dot_.resize(dof);
     desired_qr_.resize(dof);
     desired_qr_.setZero();
+    target_xr_.resize(3);
 
-    current_mob_pos_.resize(3);
-    current_mob_pos_.setZero();
-    desired_mob_pos_.resize(3);
-    desired_mob_pos_.setZero();
+    desired_base_vel_.resize(4);
+    desired_base_vel_.setZero();
 
-    desired_goal_pose_.resize(6);
-    desired_goal_pose_.setZero();
+    // current_base_.setZero();
 
+    ljoint_cmd_.name.resize(dof);
     ljoint_cmd_.position.resize(dof);
+
+    lgripper_cmd_.name.resize(2);
+    lgripper_cmd_.position.resize(2);
+
+    rjoint_cmd_.name.resize(dof);
     rjoint_cmd_.position.resize(dof);
 
-    current_position_.resize(3);
-    current_position_.setZero();
+    rgripper_cmd_.name.resize(2);
+    rgripper_cmd_.position.resize(2);
 
-    rotation_M.resize(3, 3);
-    rotation_M.setZero();
+    base_cmd_.name.resize(4);
+    base_cmd_.velocity.resize(4);
 
-    ros_ljoint_set_pub_ = nh_.advertise<sensor_msgs::JointState>("/planned_arm_trajectory", 1);
-    ros_mob_set_pub_ = nh_.advertise<geometry_msgs::Pose2D>("/planned_mob_trajectory", 1);
-    ros_ljoint_state_sub_ = nh_.subscribe("/joint_states", 100, &ROS_bridge::ljoint_cb, this);
-    ros_mob_state_sub_ = nh_.subscribe("/odometry/filtered", 100, &ROS_bridge::mob_cb, this);
+	// velocity_l = 3.0;
+	// velocity_r = 3.0;
+	desired_grasping_l = 0.1;
+	desired_grasping_r = 0.1;
 
-    ros_ee_goal_state_sub_ = nh_.subscribe("/goal_pose", 100, &ROS_bridge::goal_pose_cb, this);
-    ros_current_pose_sub_ = nh_.subscribe("/franka_states/current_pose", 1, &ROS_bridge::current_pose_cb, this);
+    for(size_t i=0; i<dof; i++)
+    {
+      ljoint_cmd_.name[i]= L_JOINT_NAME[i];
+	    rjoint_cmd_.name[i]= R_JOINT_NAME[i];
+    }
+
+        for(size_t i=0; i<2; i++)
+    {
+      lgripper_cmd_.name[i]= L_GRIPPER_NAME[i];
+	    rgripper_cmd_.name[i]= R_GRIPPER_NAME[i];
+    }
+        for(size_t i=0; i<4; i++)
+    {
+	    base_cmd_.name[i]= BASE_JOINT_NAME[i];
+
+    }
+
+    vrep_sim_start_pub_ = nh_.advertise<std_msgs::Bool>("/startSimulation", 5);
+    vrep_sim_stop_pub_ = nh_.advertise<std_msgs::Bool>("/stopSimulation", 5);
+    vrep_sim_step_trigger_pub_ = nh_.advertise<std_msgs::Bool>("/triggerNextStep", 100);
+    vrep_sim_enable_syncmode_pub_ = nh_.advertise<std_msgs::Bool>("/enableSyncMode", 5);
+
+    // Queue_size = 발행하는 메세지를 몇 개까지 저장해 둘 것인지
+    vrep_ljoint_set_pub_ = nh_.advertise<sensor_msgs::JointState>("/panda/left_joint_set", 1);
+    vrep_lgripper_set_pub_ = nh_.advertise<sensor_msgs::JointState>("/panda/left_gripper_joint_set", 1);
+
+    vrep_rjoint_set_pub_ = nh_.advertise<sensor_msgs::JointState>("/panda/right_joint_set", 1);
+    vrep_rgripper_set_pub_ = nh_.advertise<sensor_msgs::JointState>("/panda/right_gripper_joint_set", 1);
+
+    vrep_base_set_pub_ = nh_.advertise<sensor_msgs::JointState>("/husky/base_joint_set", 1);
+    
+    vrep_ljoint_state_sub_ = nh_.subscribe("/panda/left_joint_states", 100, &ROS_bridge::ljoint_cb, this);
+    vrep_rjoint_state_sub_ = nh_.subscribe("/panda/right_joint_states", 100, &ROS_bridge::rjoint_cb, this);
+    vrep_base_com_state_pub_ = nh_.subscribe("/husky/base_com_states", 100, &ROS_bridge::base_com_cb, this);
+
+    vrep_sim_step_done_sub_ = nh_.subscribe("/simulationStepDone", 100, &ROS_bridge::sim_step_done_cb, this);
+    vrep_sim_time_sub_ = nh_.subscribe("/simulationTime",100,&ROS_bridge::sim_time_cb,this);
+    vrep_sim_status_sub_ = nh_.subscribe("/simulationState",100,&ROS_bridge::sim_status_cb,this);
+
   }
   ROS_bridge::~ROS_bridge()
-  {
-    ros_ljoint_set_pub_.shutdown();
-    ros_mob_set_pub_.shutdown();
+  {       
   }
 
-  void ROS_bridge::mob_cb(const geometry_msgs::Pose2DConstPtr &msg){
-
-  current_mob_pos_(0) = msg->x;
-  current_mob_pos_(1) = msg->y;
-  current_mob_pos_(2) = msg->theta;
-  }
-
-  void ROS_bridge::ljoint_cb(const sensor_msgs::JointStateConstPtr &msg)
+  void ROS_bridge::set_exec_time(float t)
   {
-    for (size_t i = 0; i < 7; i++)
-    {
-      current_ql_[i] = msg->position[i];
-    }
+    exec_time_ = t;
   }
-
-  void ROS_bridge::rjoint_cb(const sensor_msgs::JointStateConstPtr &msg)
+  
+  void ROS_bridge::ljoint_cb(const sensor_msgs::JointStateConstPtr& msg)
   {
-    for (size_t i = 0; i < msg->name.size(); i++)
+	  for(size_t i=0; i< msg->name.size(); i++)
+      {
+        current_ql_[i] = msg->position[i];
+        current_ql_dot_[i] = msg->velocity[i];        
+      }
+}
+
+  void ROS_bridge::rjoint_cb(const sensor_msgs::JointStateConstPtr& msg)
+  {
+	  for(size_t i=0; i< msg->name.size(); i++)
     {
       current_qr_[i] = msg->position[i];
+      current_qr_dot_[i] = msg->velocity[i];        
     }
   }
 
-  void ROS_bridge::goal_pose_cb(const std_msgs::Float32MultiArrayConstPtr& msg)
+  void ROS_bridge::base_com_cb(const geometry_msgs::Pose2DConstPtr &msg)
   {
+    current_base_(0) = msg->x;
+    current_base_(1) = msg->y;
+    current_base_(2) = msg->theta;
 
-    for (size_t i = 0; i < 6; i++)
-      desired_goal_pose_[i] = msg->data[i];
   }
 
-  void ROS_bridge::current_pose_cb(const geometry_msgs::PoseConstPtr &msg)
+  void ROS_bridge::sim_status_cb(const std_msgs::Int32ConstPtr& msg)
   {
-    current_position_(0) = msg->position.x;
-    current_position_(1) = msg->position.y;
-    current_position_(2) = msg->position.z;
-
-    Eigen::Quaterniond a(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
-    rotation_M = a.toRotationMatrix();
+    vrep_sim_status = msg->data;
   }
 
-  void ROS_bridge::write_robot()
+  void ROS_bridge::read_vrep()
   {
+    ros::spinOnce();
+  }
+  
+
+  void ROS_bridge::write_vrep()
+  {
+    
     for(size_t i=0;i<dof;i++) {
-        ljoint_cmd_.position[i] = desired_ql_[i];
+        ljoint_cmd_.position[i] = desired_ql_(i);
+        rjoint_cmd_.position[i] = desired_qr_(i);
     }
-    mob_cmd_.x = desired_mob_pos_(0);
-    mob_cmd_.y = desired_mob_pos_(1);
-    mob_cmd_.theta = desired_mob_pos_(2);
 
-    ros_mob_set_pub_.publish(mob_cmd_);
-    ros_ljoint_set_pub_.publish(ljoint_cmd_);
-    rate_.sleep();
- 
+   for(size_t i=0;i<2;i++) {
+        lgripper_cmd_.position[i] = desired_grasping_l;
+        rgripper_cmd_.position[i] = desired_grasping_r;
+    }
+
+    for (size_t i = 0; i<4;i++){
+      base_cmd_.velocity[i] = desired_base_vel_(i);
+    }
+     
+    vrep_ljoint_set_pub_.publish(ljoint_cmd_);
+    vrep_lgripper_set_pub_.publish(lgripper_cmd_);
+
+	  vrep_rjoint_set_pub_.publish(rjoint_cmd_);
+	  vrep_rgripper_set_pub_.publish(rgripper_cmd_);
+
+    vrep_base_set_pub_.publish(base_cmd_);
+    
+    vrepStepTrigger();
   }
-
   void ROS_bridge::wait()
   {
-    // while(ros::ok())
-    // {
-    //   ros::spinOnce();
-    // }
+    while(ros::ok() && !sim_step_done_)
+    {
+      ros::spinOnce();
+    }
+    sim_step_done_ = false;
+    rate_.sleep();
   }
+
+  void ROS_bridge::sim_time_cb(const std_msgs::Float32ConstPtr& msg)
+  {
+    sim_time_ = msg->data;
+    tick = (sim_time_*100)/(SIM_DT*100);    
+  }
+
+  void ROS_bridge::sim_step_done_cb(const std_msgs::BoolConstPtr &msg)
+  {
+    sim_step_done_ = msg->data;
+  }
+
+  void ROS_bridge::vrepStart()
+  {
+    ROS_INFO("Starting V-REP Simulation");
+    std_msgs::Bool msg;
+    msg.data = true;
+    std_msgs::Bool msg2;
+    msg2.data=false;
+    vrep_sim_start_pub_.publish(msg);
+    vrep_sim_enable_syncmode_pub_.publish(msg2);
+  }
+  void ROS_bridge::vrepStop()
+  {
+    ROS_INFO("Stopping V-REP Simulation");
+    std_msgs::Bool msg;
+    msg.data = true;
+    vrep_sim_stop_pub_.publish(msg);
+  }
+  void ROS_bridge::vrepStepTrigger()
+  {
+    std_msgs::Bool msg;
+    msg.data = true;
+    vrep_sim_step_trigger_pub_.publish(msg);
+  }
+  void ROS_bridge::vrepEnableSyncMode()
+  {
+    ROS_INFO("Sync Mode On");
+    std_msgs::Bool msg;
+    msg.data = true;
+    vrep_sim_enable_syncmode_pub_.publish(msg);
+  }
+

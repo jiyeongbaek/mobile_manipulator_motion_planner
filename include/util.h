@@ -1,11 +1,6 @@
 #pragma once
 #include "fwd.h"
 #include <rbdl/rbdl.h>
-#include "/home/dyros/trajectory_smoothing/include/Trajectory.h"
-#include "/home/dyros/trajectory_smoothing/include/Path.h"
-
-
-#define DEGREE M_PI/180.0
 
 Matrix3d Rotate_with_X(const double rAngle);
 Matrix3d Rotate_with_Y(const double rAngle);
@@ -19,9 +14,3 @@ Matrix3d Rot_arm_link2(VectorXd q_current_);
 Vector3d GetPhi(Matrix3d Rot, Matrix3d Rotd);
 double Cubic(double rT, double rT_0, double rT_f, double rx_0, double rx_dot_0, double rx_f, double rx_dot_f);
 double JCubic(double rT, double rT_0, double rT_f, double rx_0, double rx_dot_0, double& rx_f, double rx_dot_f);
-double Waypoint_Cubic(double rT, double rT_0, double rT_f, double rx_0, double rx_dot_0, double& rx_f, double rx_dot_f);
-void Linear_Cubic(MatrixXd target, MatrixXd& u_ddot, MatrixXd& t_parabolic,MatrixXd& t_linear, MatrixXd& u_dot);
-void HermiteSpline_3rd( double u, VectorXd target, VectorXd& p_Hermite_x);
-Trajectory& HermiteSpline(MatrixXd target);
-
-int sgn(double v);

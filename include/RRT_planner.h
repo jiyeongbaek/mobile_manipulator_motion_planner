@@ -1,14 +1,12 @@
-#ifndef PLANNER_H_
-#define PLANNER_H_
+#ifndef RRTPLANNER_H_
+#define RRTPLANNER_H_
 
 #include "NodeTree.h"
 #include <rbdl/rbdl.h>
 #include <memory>
 #include "util.h"
-#include <ros/ros.h>
-#include <ros/node_handle.h>
-#include <sensor_msgs/JointState.h>
-#include <std_msgs/Bool.h>
+
+
 using namespace RigidBodyDynamics;
 using namespace std;
 
@@ -18,6 +16,8 @@ struct Robotmodel {
 	shared_ptr<Model> model;
 	VectorXd q;
 	Matrix3d Rot;
+
+
 };
 struct ST_OBB
 {
@@ -28,10 +28,8 @@ struct ST_OBB
 
 class rrt
 {
-
 public:
-	rrt(ros::NodeHandle nh_);
-	~rrt();
+	virtual ~rrt() {};
 
 	//RRT 
 	int Connect(std::vector<double> &node);
@@ -51,11 +49,8 @@ public:
 	bool CheckTraj(std::vector<double> &a, std::vector<double> &b);
 	double getDistance(std::vector<double> &a, std::vector<double> &b);
 	std::vector<double> getUnitVector(std::vector<double> &a, std::vector<double> &b);
-	std_msgs::Bool planned_done;
-	
-	MatrixXd MergeRRTResults(MatrixXd joint_target1, MatrixXd joint_target2, int case_);
-	
 
+	MatrixXd MergeRRTResults(MatrixXd joint_target1, MatrixXd joint_target2, int case_);
 
 	NodeTree *c_tree;
 	NodeTree tree;
@@ -63,9 +58,14 @@ public:
 	//RRTNode node;
 	std::vector<double> start;
 	std::vector<double> goal;
+	std::vector<double> goal2;
+	std::vector<double> goal3;
+	std::vector<double> goal4;
+	std::vector<double> goal5;
+
 	std::vector<double> g2;
 
-	VectorXd lower_limit, upper_limit, qinit, qgoal;
+	VectorXd lower_limit, upper_limit, qinit, qgoal, qgoal2, qgoal3, qgoal4, qgoal5;
 	bool left;
 	std::vector<double> DOF_weights;
 	std::vector<std::vector<double> > path;
@@ -119,9 +119,14 @@ public:
 		res = sqrt(res);
 		return res;
 	}
+	double vector_norm(const VectorXd a, const VectorXd b, int size) {
+		double res = 0.0;
+		for (int i = 0; i < size; i++)
+			res += pow(a(i) - b(i), 2);
 
-private:
-	ros::Publisher rrt_pub;
+		res = sqrt(res);
+		return res;
+	}
 };
 
 
