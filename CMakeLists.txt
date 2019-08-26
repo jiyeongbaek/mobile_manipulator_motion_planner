@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(ros_rrt_planner CXX)
+project(mobile_manipulator_motion_planner CXX)
 
 add_compile_options(-std=c++11)
 
@@ -27,27 +27,25 @@ catkin_package(
 
 link_directories(${Boost_LIBRARY_DIR})
 set(SRCS
-    src/controller.cpp
-    src/RRT_planner.cpp
+    src/Controller.cpp
+    src/RRT_planner2.cpp
     src/util.cpp
     src/ROS_bridge.cpp
-    src/NHRRT_planner.cpp
-    src/traj.cpp
-)
+	  src/NHRRT_planner.cpp
+     )
 
 set(HEADS
-    include/controller.h
+    include/Controller.h
     include/fwd.h
     include/NodeTree.h
-    include/RRT_planner.h
-    include/NHRRT_planner.h
+    include/RRT_planner2.h
     include/RRTNode.h
     include/util.h
     include/ROS_bridge.hpp
-  
+    include/NHRRT_planner.h
 )
 
-add_library(ros_controller 
+add_library(mobile_manipulator_controller 
   ${SRCS} 
   ${HEADS}
 )
@@ -61,11 +59,11 @@ include_directories(
 )
 add_definitions (-Ddof=7)
 add_executable(${PROJECT_NAME} 
-  src/main.cpp 
+  src/Main.cpp 
 )
 
 target_link_libraries(${PROJECT_NAME}
-  ros_controller
+  mobile_manipulator_controller
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   rbdl
